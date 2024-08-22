@@ -2,48 +2,70 @@ import { Container } from "@/components/Container";
 import { items } from "@/lib/mock";
 import { colors, layout } from "@/lib/theme";
 import React from "react";
-import {
-  FlatList,
-  ListRenderItemInfo,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ListRenderItemInfo, StyleSheet, Text } from "react-native";
+import Animated, {
+  Extrapolation,
+  SharedValue,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+} from "react-native-reanimated";
 
 type ItemType = (typeof items)[0];
 
 export function Interpolation() {
+  const index = useSharedValue(0);
+
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (e) => {
+      index.value = e.contentOffset.x / (layout.itemSize + layout.spacing);
+    },
+  });
+
   return (
     <Container style={styles.container}>
-      <FlatList
+      <Animated.FlatList
         data={items}
+        onScroll={onScroll}
         horizontal
         contentContainerStyle={{
           gap: layout.spacing,
-          // We are creating horizontal spacing to align the list in the center
-          // We don't subtract the spacing here because gap is not applied to the
-          // first item on the left and last item on the right.
           paddingHorizontal: (layout.screenWidth - layout.itemSize) / 2,
         }}
-        // We can't use pagingEnabled because the item is smaller than the viewport width
-        // in our case itemSize and we add the spacing because we have the gap
-        // added between the items in the contentContainerStyle
         snapToInterval={layout.itemSize + layout.spacing}
-        // This is to snap faster to the closest item
         decelerationRate={"fast"}
-        renderItem={(props) => <Item {...props} />}
+        renderItem={(props) => <Item {...props} currentIndex={index} />}
       />
     </Container>
   );
 }
 
-type ItemProps = ListRenderItemInfo<ItemType> & {};
+type ItemProps = ListRenderItemInfo<ItemType> & {
+  currentIndex: SharedValue<number>;
+};
 
-export function Item({ item, index }: ItemProps) {
+export function Item({ item, index, currentIndex }: ItemProps) {
+  const animation = useAnimatedStyle(() => {
+    const offset = index - Math.abs(currentIndex.value);
+
+    const scale = interpolate(
+      offset,
+      [-1, 0, 1],
+      [0.8, 1, 0.8],
+      Extrapolation.CLAMP
+    );
+
+    return {
+      transform: [{ scale }],
+      opacity: scale,
+    };
+  });
+
   return (
-    <View style={styles.item}>
+    <Animated.View style={[styles.item, animation]}>
       <Text>{item.label}</Text>
-    </View>
+    </Animated.View>
   );
 }
 
