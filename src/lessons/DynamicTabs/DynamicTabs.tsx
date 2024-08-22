@@ -1,24 +1,47 @@
+import React from "react";
+
 import { Container } from "@/components/Container";
 import { tabsList } from "@/lib/mock";
 import { hitSlop } from "@/lib/reanimated";
 import { colorShades, layout } from "@/lib/theme";
 import { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { ScrollView, TouchableOpacity } from "react-native-gesture-handler";
-import Animated from "react-native-reanimated";
+import {
+  FlatList,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native-gesture-handler";
+import Animated, {
+  SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 
 type TabsProps = {
   name: string;
-  isActiveTabIndex: boolean;
+  index: number;
+  onPress: (start: number, stop: number) => void;
 };
 
-const Tab = memo(({ name, isActiveTabIndex }: TabsProps) => {
+const Tab = memo(({ name, index, onPress }: TabsProps) => {
+  const start = useSharedValue(0);
+  const stop = useSharedValue(0);
+
   return (
     <View style={styles.tab}>
       <TouchableOpacity
         hitSlop={hitSlop}
+        onLayout={(event) =>
+          event.target.measure(
+            (_x, _y, w, _h, pageX) => (
+              (start.value = pageX - 10), (stop.value = pageX + w)
+            )
+          )
+        }
         style={{ marginHorizontal: layout.spacing }}
-        onPress={() => {}}>
+        onPress={() => onPress(start.value, stop.value)}
+      >
         <Text>{name}</Text>
       </TouchableOpacity>
     </View>
@@ -26,33 +49,56 @@ const Tab = memo(({ name, isActiveTabIndex }: TabsProps) => {
 });
 
 // This component should receive the selected tab measurements as props
-function Indicator() {
-  return <Animated.View style={[styles.indicator]} />;
-}
-export function DynamicTabsLesson({
-  selectedTabIndex = 0,
-  onChangeTab,
+function Indicator({
+  start,
+  stop,
 }: {
-  selectedTabIndex?: number;
-  // Call this function when the tab changes
-  // Don't forget to check if the function exists before calling it
-  onChangeTab?: (index: number) => void;
+  start: SharedValue<number>;
+  stop: SharedValue<number>;
 }) {
+  const animated = useAnimatedStyle(() => {
+    return {
+      marginLeft: start.value,
+      width: stop.value - start.value,
+    };
+  });
+  return <Animated.View style={[styles.indicator, animated]} />;
+}
+
+export function DynamicTabsLesson() {
+  const start = useSharedValue(0);
+  const stop = useSharedValue(100);
+
+  const onChangeTab = (newStart: number, newStop: number) => {
+    console.log(newStart, newStop);
+    start.value = withSpring(newStart);
+    stop.value = withSpring(newStop);
+  };
+
   return (
     <Container>
       <ScrollView
         horizontal
         style={{ flexGrow: 0 }}
-        contentContainerStyle={styles.scrollViewContainer}>
+        contentContainerStyle={styles.scrollViewContainer}
+        pagingEnabled
+      >
         {tabsList.map((tab, index) => (
           <Tab
             key={`tab-${tab}-${index}`}
             name={tab}
-            isActiveTabIndex={index === selectedTabIndex}
+            index={index}
+            onPress={onChangeTab}
           />
         ))}
-        <Indicator />
+        <Indicator start={start} stop={stop} />
       </ScrollView>
+      <FlatList
+        data={new Array(10).fill(0)}
+        renderItem={() => <View style={styles.flatTab} />}
+        pagingEnabled
+        horizontal
+      />
     </Container>
   );
 }
@@ -72,5 +118,12 @@ const styles = StyleSheet.create({
   },
   scrollViewContainer: {
     paddingVertical: layout.spacing * 2,
+  },
+  flatTab: {
+    backgroundColor: "purple",
+    width: 100,
+    height: 100,
+    margin: 10,
+    borderRadius: 5,
   },
 });
