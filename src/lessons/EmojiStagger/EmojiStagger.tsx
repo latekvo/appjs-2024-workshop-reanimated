@@ -1,8 +1,17 @@
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect } from "react";
+
+import { Platform, StyleSheet, Text, View } from "react-native";
 
 import { useChat } from "@/components/ChatProvider";
 import type { MessageType } from "@/lib/mock";
 import { colors } from "@/lib/theme";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 
 interface Props {
   message: MessageType;
@@ -12,25 +21,59 @@ const emojis = ["👍", "👎", "😂", "😢", "😡", "😲"];
 
 export function EmojiStaggerLesson({ message }: Props) {
   const { currentPopupId, setCurrentPopupId } = useChat();
+  const emojiProgress = useSharedValue(0);
+  const buttonScale = useSharedValue(1);
+
+  useEffect(() => {
+    if (currentPopupId !== message.id) {
+      emojiProgress.value = withSpring(0);
+    }
+  }, [currentPopupId]);
+
+  const longPress = Gesture.LongPress()
+    .onBegin(() => {
+      buttonScale.value = withSpring(0.9);
+    })
+    .onStart(() => {
+      runOnJS(setCurrentPopupId)(message.id);
+      emojiProgress.value = withSpring(1);
+    })
+    .onFinalize(() => {
+      buttonScale.value = withSpring(1);
+    });
+
+  const animation = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          scale: buttonScale.value,
+        },
+      ],
+    };
+  });
 
   return (
     <View>
-      <Pressable
-        style={[
-          styles.message,
-          message.from === "me" ? styles.messageMe : styles.messageThem,
-        ]}
-        onPress={() => setCurrentPopupId(message.id)}>
-        <Text
+      <GestureDetector gesture={longPress}>
+        <Animated.View
           style={[
-            styles.messageText,
-            message.from === "me"
-              ? styles.messageTextMe
-              : styles.messageTextThem,
-          ]}>
-          {message.message}
-        </Text>
-      </Pressable>
+            styles.message,
+            message.from === "me" ? styles.messageMe : styles.messageThem,
+            animation,
+          ]}
+        >
+          <Text
+            style={[
+              styles.messageText,
+              message.from === "me"
+                ? styles.messageTextMe
+                : styles.messageTextThem,
+            ]}
+          >
+            {message.message}
+          </Text>
+        </Animated.View>
+      </GestureDetector>
 
       {currentPopupId === message.id && (
         <View style={styles.emojiPopupContainer}>
