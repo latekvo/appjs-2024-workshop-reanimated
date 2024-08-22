@@ -1,3 +1,5 @@
+import React from "react";
+
 import type { ReactNode } from "react";
 import { StyleProp, ViewStyle } from "react-native";
 
@@ -22,7 +24,8 @@ export function Container({
         },
         centered && { justifyContent: "center", alignItems: "center" },
         style,
-      ]}>
+      ]}
+    >
       {children}
     </SafeAreaView>
   );
